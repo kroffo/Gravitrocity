@@ -17,20 +17,37 @@ import java.util.ArrayList;
 public class Gravitrocity extends ApplicationAdapter {
     private SpriteBatch batch;
     private OrthographicCamera camera;
-    private ArrayList<Mass> masses = new ArrayList<Mass>(0);
+    private ArrayList<Mass> masses;
     private long time;
     private TimeUtils time_utils = new TimeUtils();
-    private boolean clicked = false;
-    private float screenHeight, screenWidth;
+    private boolean clicked, settingV;
+    private Vector2 vStart;
+    private float screenHeight, screenWidth, maxStep;
+    
+    /* Game mode:
+     *   - 0 : Free mode
+     */
+    private int mode = 0;
 	
     @Override
     public void create () {
         batch = new SpriteBatch();
         screenHeight = Gdx.graphics.getHeight();
         screenWidth = Gdx.graphics.getWidth();
-        //masses.add(new Mass("Yellow",1,new Vector2(250,300),new Vector2(0,-68)));
-        time = time_utils.millis();
+        masses = new ArrayList<Mass>(0);
+        maxStep = (float)0.0001;
+        clicked = false;
         camera = new OrthographicCamera(screenHeight, screenWidth);
+        time = time_utils.millis();
+    }
+
+    private void loadMode(int mode) {
+        this.mode = mode;
+        if (mode == 0) {
+            maxStep = (float)0.0001;
+            time = time_utils.millis();
+            masses = new ArrayList<Mass>(0);
+        }
     }
 
     @Override
@@ -44,11 +61,29 @@ public class Gravitrocity extends ApplicationAdapter {
         
         Mass massesArray[] = masses.toArray(new Mass[masses.size()]);
 
-        for (Mass m : masses)
-            m.calculateForce(massesArray);
+        float passed = (float)0.0;
+
+        if (timeStep > 0.05) {
+            maxStep *= 10;
+        }
+        
+        while (passed < timeStep) {
+        
+            float delta = timeStep - passed;
+            float smallStep = maxStep;
+            if (delta < smallStep)
+                smallStep = delta;
+
+            for (Mass m : masses)
+                m.calculateForce(massesArray);
+            
+            for (Mass m : masses) {
+                m.stepForward(smallStep);
+            }
+            passed += smallStep;
+        }
 
         for (Mass m : masses) {
-            m.stepForward(timeStep);
             m.getSprite().draw(batch);
         }
         
@@ -67,7 +102,18 @@ public class Gravitrocity extends ApplicationAdapter {
             if (!clicked || Gdx.input.isKeyPressed(Input.Keys.SPACE)) {
                 Vector3 input = new Vector3(Gdx.input.getX(),Gdx.input.getY(),0);
                 camera.unproject(input);
-                masses.add(new Mass("Red", 1, new Vector2(input.x,input.y), new Vector2(0,0)));
+
+                if (settingV) {
+                    masses.add(new Mass("Yellow", 1, new Vector2(vStart.x-16,vStart.y-11), new Vector2(input.x-vStart.x,input.y-vStart.y), false));
+                    settingV = false;
+                } else if (!clicked && Gdx.input.isKeyPressed(Input.Keys.V)) {
+                    settingV = true;
+                    vStart = new Vector2(input.x,input.y);
+                } else if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT))
+                    masses.add(new Mass("Blue", 1, new Vector2(input.x-16,input.y-11), new Vector2(0,0), true));
+                else
+                    masses.add(new Mass("Red", 1, new Vector2(input.x-16,input.y-11), new Vector2(0,0), false));
+                    
                 clicked = true;
             }
         } else if (clicked) {
@@ -91,6 +137,10 @@ public class Gravitrocity extends ApplicationAdapter {
         }
         if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
             camera.translate(0, 3, 0);
+        }
+        if ((Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) && Gdx.input.isKeyPressed(Input.Keys.R)) {
+            // At the moment this will get called several times when Shift + R is pressed because the code executes while the buttons are held down.
+            loadMode(mode);
         }
 camera.update();
     }

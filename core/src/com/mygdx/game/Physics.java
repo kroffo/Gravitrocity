@@ -10,6 +10,8 @@ public class Physics {
     /* Calculates the force on mass m1 by mass m2 */
     public static Vector2 calculateGravitationalForce(Mass m1, Mass m2) {
         Vector2 displacement = m2.getPosition().sub(m1.getPosition());
+        if (displacement.len() < 1)
+            displacement.nor();
         float force = G*m1.getMass()*m2.getMass()/displacement.len();
         Vector2 forceVector = displacement.nor().setLength(force);
         return forceVector;
